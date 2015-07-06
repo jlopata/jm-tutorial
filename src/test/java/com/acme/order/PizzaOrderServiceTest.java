@@ -1,7 +1,9 @@
 package com.acme.order;
 
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 
@@ -27,7 +29,7 @@ public class PizzaOrderServiceTest {
 
 	}
 	
-	@Test
+	/*@Test
 	public void cancelledOrderShouldBePersistedAndEmailShouldBeSent() {
 		//given
 		String pizzaOrderId = "fake_id";
@@ -38,8 +40,16 @@ public class PizzaOrderServiceTest {
 		Mockito.when(messageTemplate.getCancelTemplate()).thenReturn(template);
 		//when
 		pizzaOrderService.cancelOrder(pizzaOrderId);
+		//then
+		Assert.assertTrue(givenPizzaOrder.isCancelled());
+		ArgumentCaptor<String> sentEmail = ArgumentCaptor.forClass(String.class);
+		Mockito.verify(mailSender).send(Mockito.any(Template.class), Mockito.anyString());
+		Assert.assertTrue(sentEmail.getValue().equals(givenPizzaOrder.getEmail()));
+		ArgumentCaptor<PizzaOrder> savedPizzaOrder = ArgumentCaptor.forClass(PizzaOrder.class);
+		Mockito.verify(orderDatabase).save(Mockito.any(PizzaOrder.class));
+		Assert.assertTrue(savedPizzaOrder.getValue().equals(givenPizzaOrder));
 		
-	}
+	}*/
 	
 	private PizzaOrder givenPizzaOrder() {
 		Customer customer = givenCustomer();
@@ -54,5 +64,23 @@ public class PizzaOrderServiceTest {
 		return customer;
 	}
 	
-	
+	@Test
+	public void createdOrderShouldBePersistedAndEmailShoulBeSent(){
+		//given
+		PizzaOrder givenPizzaOrder = givenPizzaOrder();
+		//stub
+		PizzaType type = Mockito.mock(PizzaType.class);
+		OrderCreatedTemplate template = Mockito.mock(OrderCreatedTemplate.class);
+		Mockito.when(orderDatabase.get(Mockito.anyString())).thenReturn(givenPizzaOrder);
+		Mockito.when(messageTemplate.getCreatedTemplate()).thenReturn(template);
+		//when
+		pizzaOrderService.createOrder(givenCustomer(),type);
+		//then
+		//ArgumentCaptor<String> sentEmail = ArgumentCaptor.forClass(String.class);
+		Mockito.verify(mailSender).send(Mockito.any(Template.class), Mockito.anyString());
+		//Assert.assertTrue(sentEmail.getValue().equals(givenPizzaOrder.getEmail()));
+		//ArgumentCaptor<PizzaOrder> savedPizzaOrder = ArgumentCaptor.forClass(PizzaOrder.class);
+		//Mockito.verify(orderDatabase).save(Mockito.any(PizzaOrder.class));
+		//Assert.assertTrue(savedPizzaOrder.getValue().equals(givenPizzaOrder));
+	}
 }
