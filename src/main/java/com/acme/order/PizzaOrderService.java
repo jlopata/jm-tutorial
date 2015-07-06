@@ -4,6 +4,16 @@ import java.util.Date;
 
 public class PizzaOrderService {
 
+	public PizzaOrderService(MailSender mailSender, OrderDatabase orderDatabase, OrderFactory orderFactory,
+			DeliveryTimeService deliveryTimeService, MessageTemplateService messageTemplate) {
+		super();
+		this.mailSender = mailSender;
+		this.orderDatabase = orderDatabase;
+		this.orderFactory = orderFactory;
+		this.deliveryTimeService = deliveryTimeService;
+		this.messageTemplate = messageTemplate;
+	}
+
 	private MailSender mailSender;
 
 	private OrderDatabase orderDatabase;
