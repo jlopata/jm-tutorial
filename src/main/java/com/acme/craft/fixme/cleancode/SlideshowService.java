@@ -12,31 +12,89 @@ public class SlideshowService {
 
 	private ResourceHolderRepository resourceHolderRepository;
 	private ResourceHolderResourceRepository resourceHolderResourceRepository;
-	private ResourceHolderScheduleRepository rsrcHldrSchdleRpstry;
 	private scheduleRepository ScheduleServiceImplSimple;
 
-	public SlideshowData generateTimelineData(String resourceHolderId)
-			throws Exception {
-		ResourceHolder data = resourceHolderRepository
-				.findOne(resourceHolderId);
+	public SlideshowData generateTimelineData(String resourceHolderId) throws Exception {
+		ResourceHolder data = fetchResourceHolder(resourceHolderId);
 
-		if (data == null) {
-			throw new Exception("some error");
-		}
+		validateResourceHolder(data);
 
-		Resource resource = null;
-		if (resource.getContentId() != null) {
-			resource = resourceHolderResourceRepository.findOne(resource
-					.getContentId());
-		}
-
-		Asset defaultAsset = null;
-		if (resource != null) {
-			defaultAsset = resourceToAsset(resource);
-		}
-
+		Resource resource = assignResource();
+		Asset defaultAsset = castResourceToAsset(resource);
 		Slideshow timeline = new Slideshow();
+		setSlideshow(defaultAsset, timeline);
 
+		ResourceSchedule schedule = ScheduleServiceImplSimple.findOne(resource.getScheduleId());
+		validateSchedule(schedule);
+
+		int resourceScheduleSize = schedule.getResourceSchedules().size();
+		validateResourceScheduleSize(resourceScheduleSize);
+
+		Set<String> resourceIds = new HashSet<>();
+		for (ResourceSchedule item : schedule.getResourceSchedules()) {
+			resourceIds.add(item.getResourceId());
+		}
+
+		Iterable<Resource> resourcesSet = resourceHolderResourceRepository.findAll(resourceIds);
+		HashMap<String, Asset> assets = resourcesToAssetMap(resourcesSet);
+
+		List<SlideshowInterval> timelineIntervals = new ArrayList<>();
+		int slide = 0;
+
+		Calendar calendar = GregorianCalendar.getInstance();
+
+		for (int i = 0; i < resourceScheduleSize - 1; ++i) {
+			ResourceSchedule resourceSchedule = schedule.getResourceSchedules().get(i);
+			ResourceSchedule nextResourceSchedule = schedule.getResourceSchedules().get(i + 1);
+
+			if (calendar.getTimeInMillis() > resourceSchedule.getStartTime()) {
+				++slide;
+			}
+			timelineIntervals
+					.add(resourceScheduleToDate(resourceSchedule, assets.get(resourceSchedule.getResourceId())));
+			if (defaultAsset != null) {
+
+				if (resourceSchedule.getEndTime() != nextResourceSchedule.getStartTime()) {
+					if (resourceSchedule.getEndTime() < calendar.getTimeInMillis()) {
+						++slide;
+					}
+					timelineIntervals.add(defaultDate(resourceSchedule.getEndTime(),
+							nextResourceSchedule.getStartTime(), defaultAsset));
+				}
+			}
+		}
+
+		ResourceSchedule previousResourceScheduleSize = schedule.getResourceSchedules().get(resourceScheduleSize - 1);
+
+		if (resourceScheduleSize > 0) {
+			if (calendar.getTimeInMillis() > previousResourceScheduleSize.getEndTime()) {
+				slide = 0;
+			}
+
+			timelineIntervals.add(resourceScheduleToDate(previousResourceScheduleSize,
+					assets.get(previousResourceScheduleSize.getResourceId())));
+		}
+		timeline.setDate(timelineIntervals);
+		return new SlideshowData(timeline, slide);
+	}
+
+	private void validateResourceScheduleSize(int resourceScheduleSize) throws Exception {
+		if (resourceScheduleSize == 0) {
+			throw new Exception("", null);
+		}
+	}
+
+	private void validateSchedule(ResourceSchedule schedule) {
+		if (schedule == null) {
+			try {
+				throw new Exception("");
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	private void setSlideshow(Asset defaultAsset, Slideshow timeline) {
 		if (defaultAsset != null) {
 			timeline.setHeadline("Slideshow");
 			timeline.setText("This is your default Slideshow content");
@@ -47,76 +105,32 @@ public class SlideshowService {
 			timeline.setText("You dont have default content for Slideshow");
 			timeline.setType("default");
 		}
+	}
 
-		ResourceSchedule schedule = ScheduleServiceImplSimple.findOne(resource
-				.getScheduleId());
-
-		if (schedule == null) {
-			try {
-				throw new Exception("");
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+	private Asset castResourceToAsset(Resource resource) {
+		Asset defaultAsset = null;
+		if (resource != null) {
+			defaultAsset = resourceToAsset(resource);
 		}
+		return defaultAsset;
+	}
 
-		if (schedule.getResourceSchedules().size() == 0) {
-			throw new Exception("", null);
+	private Resource assignResource() {
+		Resource resource = null;
+		if (resource.getContentId() != null) {
+			resource = resourceHolderResourceRepository.findOne(resource.getContentId());
 		}
+		return resource;
+	}
 
-		Set<String> resourceIds = new HashSet<>();
-		for (ResourceSchedule item : schedule.getResourceSchedules()) {
-			resourceIds.add(item.getResourceId());
+	private void validateResourceHolder(ResourceHolder data) throws Exception {
+		if (data == null) {
+			throw new Exception("some error");
 		}
+	}
 
-		Iterable<Resource> resourcesSet = resourceHolderResourceRepository
-				.findAll(resourceIds);
-		HashMap<String, Asset> assets = resourcesToAssetMap(resourcesSet);
-
-		List<SlideshowInterval> timelineIntervalList = new ArrayList<>();
-		int slide = 0;
-
-		Calendar calendar = GregorianCalendar.getInstance();
-
-		for (int i = 0; i < schedule.getResourceSchedules().size() - 1; ++i) {
-			if (calendar.getTimeInMillis() > schedule.getResourceSchedules()
-					.get(i).getStartTime()) {
-				++slide;
-			}
-			timelineIntervalList.add(resourceScheduleToDate(schedule
-					.getResourceSchedules().get(i), assets.get(schedule
-					.getResourceSchedules().get(i).getResourceId())));
-			if (defaultAsset != null) {
-				if (schedule.getResourceSchedules().get(i).getEndTime() != schedule
-						.getResourceSchedules().get(i + 1).getStartTime()) {
-					if (schedule.getResourceSchedules().get(i).getEndTime() < calendar
-							.getTimeInMillis()) {
-						++slide;
-					}
-					timelineIntervalList.add(defaultDate(schedule
-							.getResourceSchedules().get(i).getEndTime(),
-							schedule.getResourceSchedules().get(i + 1)
-									.getStartTime(), defaultAsset));
-				}
-			}
-		}
-		if (schedule.getResourceSchedules().size() > 0) {
-			if (calendar.getTimeInMillis() > schedule.getResourceSchedules()
-					.get(schedule.getResourceSchedules().size() - 1)
-					.getEndTime()) {
-				slide = 0;
-			}
-
-			timelineIntervalList.add(resourceScheduleToDate(
-					schedule.getResourceSchedules().get(
-							schedule.getResourceSchedules().size() - 1),
-					assets.get(schedule.getResourceSchedules()
-							.get(schedule.getResourceSchedules().size() - 1)
-							.getResourceId())));
-		}
-
-		timeline.setDate(timelineIntervalList);
-		return new SlideshowData(timeline, slide);
+	private ResourceHolder fetchResourceHolder(String resourceHolderId) {
+		return resourceHolderRepository.findOne(resourceHolderId);
 	}
 
 	private Asset resourceToAsset(Resource resource) {
@@ -128,8 +142,7 @@ public class SlideshowService {
 		return out;
 	}
 
-	private HashMap<String, Asset> resourcesToAssetMap(
-			Iterable<Resource> resources) {
+	private HashMap<String, Asset> resourcesToAssetMap(Iterable<Resource> resources) {
 		HashMap<String, Asset> out = new HashMap<>();
 		for (Resource item : resources) {
 			out.put(item.getId(), resourceToAsset(item));
@@ -137,8 +150,7 @@ public class SlideshowService {
 		return out;
 	}
 
-	private SlideshowInterval resourceScheduleToDate(ResourceSchedule schedule,
-			Asset asset) {
+	private SlideshowInterval resourceScheduleToDate(ResourceSchedule schedule, Asset asset) {
 		SlideshowInterval out = new SlideshowInterval();
 		out.setStartDate(timestampToTimelineDate(schedule.getStartTime()));
 		out.setEndDate(timestampToTimelineDate(schedule.getEndTime()));
@@ -160,11 +172,9 @@ public class SlideshowService {
 		Calendar calendar = GregorianCalendar.getInstance();
 		calendar.setTimeInMillis(timestamp);
 		StringBuilder stringBuilder = new StringBuilder();
-		stringBuilder.append(calendar.get(Calendar.YEAR)).append(",")
-				.append(calendar.get(Calendar.MONTH) + 1).append(",")
-				.append(calendar.get(Calendar.DAY_OF_MONTH)).append(",")
-				.append(calendar.get(Calendar.HOUR_OF_DAY)).append(",")
-				.append(calendar.get(Calendar.MINUTE));
+		stringBuilder.append(calendar.get(Calendar.YEAR)).append(",").append(calendar.get(Calendar.MONTH) + 1)
+				.append(",").append(calendar.get(Calendar.DAY_OF_MONTH)).append(",")
+				.append(calendar.get(Calendar.HOUR_OF_DAY)).append(",").append(calendar.get(Calendar.MINUTE));
 		return stringBuilder.toString();
 	}
 
