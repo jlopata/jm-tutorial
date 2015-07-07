@@ -1,9 +1,14 @@
 package com.acme.craft.fixme.commons.collection;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
+import org.apache.commons.collections4.CollectionUtils;
+
 public class PropertyService {
+
+	public List<String> x = new ArrayList<>(Arrays.asList("property1", "property2", "property3", "property4"));
 
 	public List<String> defaultProperties() {
 		List<String> properties = new ArrayList<>();
@@ -16,7 +21,7 @@ public class PropertyService {
 	}
 
 	public boolean valid(List<String> properties) {
-		if (properties != null && properties.size() > 0) {
+		if (CollectionUtils.isEmpty(properties)) {
 			boolean isValid = true;
 			for (String property : properties) {
 				isValid = isValid && valid(property);
